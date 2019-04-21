@@ -1,0 +1,1680 @@
+---
+title:   |
+  | HarvardX - Data Science Professional Certificate
+  | Capstone Project
+  | - Chocolate Bar Rating System -
+author:  "Anass Latif"
+date:    "`r format(Sys.Date(), '%B %d, %Y')`"
+output:  
+   pdf_document:
+      latex_engine: xelatex
+      toc: true
+      toc_depth: 2
+      fig_width: 5
+      fig_height: 3
+      
+fontsize: 11pt
+geometry: margin=0.75in
+urlcolor: blue
+---
+
+
+```{r 000-setup-prerequisites, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 000. Setup the prerequisites to generate the report as a PDF file 
+# =============================================================================
+
+knitr::opts_chunk$set(message = FALSE, 
+                      echo = FALSE, 
+                      fig.align = 'center')
+
+```
+
+
+```{r 001-configure-variables, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 001 - Configure all variables and session information
+# =============================================================================
+
+# Start the chronometer to get the script start time in milliseconds
+script_start_time <- proc.time()
+script_start_time
+
+# Display the working directory
+getwd()
+
+# Display session information for reproductibility
+sessionInfo()
+
+# Use s seed number for reproductibility
+set.seed(1111)
+
+# Setup precision for decimals
+options(digits = 3)
+
+```
+
+
+```{r 002-install-packages, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 002 - Install all necessary packages if do not exist
+# =============================================================================
+
+# Initialize the list of packages in a vector
+package_list <- c("tidyverse",
+                  "caret",
+                  "lubridate",
+                  "gridExtra",
+                  "ggplot2",
+                  "ggrepel",
+                  "ggthemes",
+                  "knitr",
+                  "kableExtra",
+                  "rworldmap",
+                  "rattle",
+                  "rpart",
+                  "rpart.plot",
+                  "kernlab",
+                  "gbm",
+                  "doMC")
+
+# Install the list of packages defined previously
+for (pkg in package_list) {
+   if(!require(pkg, character.only = TRUE)) install.packages(pkg)
+}
+
+```
+
+
+```{r 003-load-libraries, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 003 - Load all necessary libraries
+# =============================================================================
+
+# Load libraries from the list of packages defined previously
+for (pkg in package_list) {
+   library(pkg, character.only = TRUE)
+}
+
+```
+
+\newpage
+
+<!-- ============================================================================== -->
+<!--  Section  01. Introduction / Overview / Executive Summary                      -->
+<!--              01.01. Background and Motivation                                  -->
+<!--              01.02. Data Set                                                   -->
+<!--              01.03. Goal                                                       -->
+<!--              01.04. Key Steps                                                  -->
+<!-- ============================================================================== -->
+# 1. Introduction / Overview / Executive Summary
+
+
+## Background and Motivation
+
+**Chocolate** is one of the most popular candies in the world. Canadian eat an average of **6.4** kilograms of chocolate a year, which base on an average bar size, is at least 160 chocolate bars per year, per person. However, citizens around the world have different tastes for different kinds of chocolate and not all chocolate bars are created equal!
+
+This **Harvard Data Science Capstone** is the final assignment for [HarvardX - Data Science Professional Certificate](https://www.edx.org/professional-certificate/harvardx-data-science) from Harvard University. 
+
+The purpose of this report is to highlight customer satisfaction of chocolate bars based on different variables such as cocoa percentage, cocoa bean type, cocoa bean origin, manufacturer contry, etc.
+
+
+## Dataset
+
+For this assignment, we will go throught all the steps to create a predictive model using the Chocolate Bar Rating dataset, available in [Kaggle](https://www.kaggle.com/rtatman/chocolate-bar-ratings). 
+
+This dataset contains expert ratings of over 1,750 individual chocolate bars, along with information on their regional origin, percentage of cocoa, the variety of chocolate bean used and where the beans were grown.
+
+These ratings were compiled by Brady Brelinski, Founding Member of the Manhattan Chocolate Society. For up-to-date information, as well as additional content (including interviews with craft chocolate makers), please see his website: [Flavors of Cacao](http://flavorsofcacao.com/index.html).
+
+
+## Goal
+
+The objective of this report is to predict, in the most accurate and comprehensive way, the **_Chocolate Bar Rating Class_** by implementing, testing and validating different machine learning algorithms.
+
+The chocolate rating class is based on the **Flavors of Cacao Rating System**
+
+* 5= Elite (Transcending beyond the ordinary limits) - Rating = 5.00
+* 4= Premium (Superior flavor development, character and style) - Rating = 4.00 to 4.75
+* 3= Satisfactory(3.0) to praiseworthy(3.75) (well made with special qualities) - Rating = 3.00 to 3.75
+* 2= Disappointing (Passable but contains at least one significant flaw) - Rating = 2.00 to 2.75
+* 1= Unpleasant (mostly unpalatable) - Rating = 1.00 to 1.75
+
+
+## Key Steps
+
+To achieve the project objectives, we will follow a comprehensive machine learning workflow:
+
+1. Download the Chocolate Bar Ratings dataset
+2. Explore the dataset to discover the data and the available features. We will use some exploratory techniques such as data description, preparation, exploration and visualization.
+3. Split the dataset into training (`training_set`) and test (`validation_set`) datasets
+4. Develop and train different predictive models and algorithms in order to find a recommendation model with the best possible outcome (Accuracy).
+5. Explain the results and conclude.
+
+All the project will be made through RStudio (version `r getRversion()`) using some useful packages (eg: dplyr, tidyverse, lubridate, caret, etc.). 
+
+This report doesn't display the R code used to generate the information. All scripts are available in [My GitHub Repository](https://github.com/anass-latif/DataScience-HarvardX-ChooseYourOwn).
+
+\newpage
+
+<!-- ============================================================================== -->
+<!--  Section  02. Second Section - Methods / Analysis                              -->
+<!--              02.01. Data Preparation                                           -->
+<!--              02.02. Exploratory Data Analysis                                  -->
+<!--              02.03. Model Building, Training And Validation                    -->
+<!-- ============================================================================== -->
+# 2. Methods / Analysis
+
+
+## Data Preparation
+
+
+### Dataset Generation
+
+```{r 004-download-dataset, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 004 - Download and Generate the Dataset
+# =============================================================================
+
+# 004-01 Define the URL for the dataset
+chocolate_dataset_url <- "https://raw.githubusercontent.com/anass-latif/DataScience-HarvardX-ChooseYourOwn/master/data/flavors_of_cacao.csv"
+
+# 004-02 Download and read file into raw table while removing non printable characters
+chocolate_data <- read_csv(gsub("[^[:print:]]","",chocolate_dataset_url),
+                           na = c(""," ","NA"))
+
+# 004-03 Create a Country-Region mapping based on rworldmap package
+country_region_data <- countryRegions %>%
+   mutate(CountryName = ADMIN,
+          CountryCode = ISO3,
+          GeoRegion = GEO3) %>%
+   filter(!is.na(GeoRegion)) %>%
+   select(CountryName,
+          CountryCode,
+          GeoRegion)
+
+```
+
+The generated dataset is downloaded from a CSV file available in my [GitHub repository](https://raw.githubusercontent.com/anass-latif/DataScience-HarvardX-ChooseYourOwn/master/data/flavors_of_cacao.csv). The file contains some non-printable characters that have been removed during the generation.
+
+
+### Dataset Description
+
+```{r 005-01-understand-data-structure, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 005 - Understand the original data structure
+# =============================================================================
+
+# 005-01 chocolate_data Dataset Structure
+str(chocolate_data)
+
+# 005-02 Number of columns in chocolate_data Dataset
+num_columns <- ncol(chocolate_data)
+
+num_columns
+
+# 005-03 Number of rows in chocolate_data Dataset
+num_rows <- nrow(chocolate_data)
+
+num_rows
+
+# 005-04 Number of missing values in chocolate_data Dataset
+num_missings <- sum(is.na(chocolate_data))
+
+num_missings
+
+# 005-05 Rename Columns for more consistency
+column_names <- c("CompanyName",
+                  "ChocolateBarName",
+                  "Reference",
+                  "ReviewYear",
+                  "CocoaPercentage",
+                  "CompanyCountry",
+                  "Rating",
+                  "BeanType",
+                  "BeanOrigin")
+
+names(chocolate_data) <- column_names
+
+# 005-06 Check missing values for each column in chocolate_data Dataset
+dataset_missing_Values <- tibble("Column_Name" = c("CompanyName",
+                                                   "ChocolateBarName",
+                                                   "Reference",
+                                                   "ReviewYear",
+                                                   "CocoaPercentage",
+                                                   "CompanyCountry",
+                                                   "Rating",
+                                                   "BeanType",
+                                                   "BeanOrigin"),
+                                 "Missing_Values" = c(sum(is.na(chocolate_data$CompanyName)),
+                                                      sum(is.na(chocolate_data$ChocolateBarName)),
+                                                      sum(is.na(chocolate_data$Reference)),
+                                                      sum(is.na(chocolate_data$ReviewYear)),
+                                                      sum(is.na(chocolate_data$CocoaPercentage)),
+                                                      sum(is.na(chocolate_data$CompanyCountry)),
+                                                      sum(is.na(chocolate_data$Rating)),
+                                                      sum(is.na(chocolate_data$BeanType)),
+                                                      sum(is.na(chocolate_data$BeanOrigin))))
+
+```
+
+The dataset contains **_`r num_rows`_** observations (rows) of **_`r num_columns`_** variables (columns). 
+
+There is some missing values (**_`r num_missings`_** na in total):
+
+```{r 005-02-missing-values}
+
+# 005-07 Display Missing Value counts
+dataset_missing_Values %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+```
+
+The features / variables identified in the dataset are:
+
+* `CompanyName`: Name of the company manufacturing the Chocolate bar.
+* `ChocolateBarName`: The specific species, the geo-region of origin for the bar, or the bar name.
+* `Reference`: A value linked to when the review was entered in the database. Higher = more recent.
+* `ReviewYear`: Year of publication of the review.
+* `CocoaPercentage`: Cocoa percentage (darkness) of the chocolate bar being reviewed.
+* `CompanyCountry`: Manufacturer base country.
+* `Rating`: Expert rating for the Chocolate bar from 1 to 5 with 0.25 increment.
+* `BeanType`: The variety (breed) of bean used, if provided.
+* `BeanOrigin`: The broad country or geo-region of origin for the bean, if provided.
+
+Let's display a sample of the dataset.
+
+```{r 005-03-dataset-sample}
+
+# 005-08 Dataset Example
+head(chocolate_data) %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE,
+                 latex_options = "scale_down")
+
+```
+
+\newpage
+
+### Dataset Preprocessing (Feature Selection and Engineering)
+
+```{r 006-01-preprocess-dataset, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 006 - Preprocess the datasets
+# =============================================================================
+
+# 006-01 Standardize the [BeanOrigin] column data based on Country or Sub-Region ISO-3166 standards
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Africa, Carribean, C. Am."] <- "Western Africa|Caribbean|Meso-America"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Burma"] <- "Myanmar"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Carribean"] <- "Caribbean"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Carribean(DR/Jam/Tri)"] <- "Dominican Republic|Jamaica|Trinidad and Tobago"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Central and S. America"] <- "Meso-America|South America"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Colombia, Ecuador"] <- "Colombia|Ecuador"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Congo"] <- "Republic of the Congo"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Cost Rica, Ven"] <- "Costa Rica|Venezuela"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Dom. Rep., Madagascar"] <- "Dominican Republic|Madagascar"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Dominican Rep., Bali"] <- "Dominican Republic|Indonesia"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "DR, Ecuador, Peru"] <- "Dominican Republic|Ecuador|Peru"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ecuador, Costa Rica"] <- "Ecuador|Costa Rica"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ecuador, Mad., PNG"] <- "Ecuador|Madagascar|Papua New Guinea"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ghana & Madagascar"] <- "Ghana|Madagascar"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ghana, Domin. Rep"] <- "Ghana|Dominican Republic"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ghana, Panama, Ecuador"] <- "Ghana|Panama|Ecuador"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Gre., PNG, Haw., Haiti, Mad"] <- "Grenada|Papua New Guinea|South Pacific|Haiti|Madagascar"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Guat., D.R., Peru, Mad., PNG"] <- "Guatemala|Dominican Republic|Peru|Madagascar|Papua New Guinea"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Indonesia, Ghana"] <- "Indonesia|Ghana"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Mad., Java, PNG"] <- "Madagascar|Indonesia|Papua New Guinea"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Madagascar & Ecuador"] <- "Madagascar|Ecuador"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Peru(SMartin,Pangoa,nacional)"] <- "Peru"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Peru, Belize"] <- "Peru|Belize"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Peru, Dom. Rep"] <- "Peru|Dominican Republic"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Peru, Ecuador"] <- "Peru|Ecuador"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Peru, Ecuador, Venezuela"] <- "Peru|Ecuador|Venezuela"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Peru, Mad., Dom. Rep."] <- "Peru|Madagascar|Dominican Republic"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Peru, Madagascar"] <- "Peru|Madagascar"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "PNG, Vanuatu, Mad"] <- "Papua New Guinea|Vanuatu|Madagascar"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Trinidad, Ecuador"] <- "Trinidad and Tobago|Ecuador"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ven, Bolivia, D.R."] <- "Venezuela|Bolivia|Dominican Republic"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ven, Trinidad, Ecuador"] <- "Venezuela|Trinidad and Tobago|Ecuador"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ven., Indonesia, Ecuad."] <- "Venezuela|Indonesia|Ecuador"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ven., Trinidad, Mad."] <- "Venezuela|Trinidad and Tobago|Madagascar"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Ven.,Ecu.,Peru,Nic."] <- "Venezuela|Ecuador|Peru|Nicaragua"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Venez,Africa,Brasil,Peru,Mex"] <- "Venezuela|Western Africa|Brazil|Peru|Mexico"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Venezuela, Carribean"] <- "Venezuela|Caribbean"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Venezuela, Dom. Rep."] <- "Venezuela|Dominican Republic"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Venezuela, Ghana"] <- "Venezuela|Ghana"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Venezuela, Java"] <- "Venezuela|Indonesia"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Venezuela, Trinidad"] <- "Venezuela|Trinidad and Tobago"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Venezuela/ Ghana"] <- "Venezuela|Ghana"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Domincan Republic"] <- "Dominican Republic"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Hawaii"] <- "South Pacific"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Principe"] <- "Sao Tome and Principe"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Sao Tome"] <- "Sao Tome and Principe"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Sao Tome & Principe"] <- "Sao Tome and Principe"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "St. Lucia"] <- "Saint Lucia"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "South America, Africa"] <- "South America|Western Africa"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Tanzania"] <- "United Republic of Tanzania"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Tobago"] <- "Trinidad and Tobago"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Trinidad"] <- "Trinidad and Tobago"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Trinidad, Tobago"] <- "Trinidad and Tobago"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Trinidad-Tobago"] <- "Trinidad and Tobago"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Venezuela"] <- "Venezuela"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Vietnam"] <- "Vietnam"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "Martinique"] <- "Caribbean"
+chocolate_data$BeanOrigin[chocolate_data$BeanOrigin == "West Africa"] <- "Western Africa"
+
+# 006-02 Correct the Misspellings in [CompanyCountry] column to be compliant with ISO Codes
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Amsterdam"] <- "Netherlands"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Domincan Republic"] <- "Dominican Republic"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Eucador"] <- "Ecuador"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Niacragua"] <- "Nicaragua"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "St. Lucia"] <- "Saint Lucia"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Sao Tome"] <- "Sao Tome and Principe"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Scotland"] <- "United Kingdom"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "U.K."] <- "United Kingdom"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "U.S.A."] <- "United States of America"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Venezuela"] <- "Venezuela"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Wales"] <- "United Kingdom"
+chocolate_data$CompanyCountry[chocolate_data$CompanyCountry == "Martinique"] <- "France"
+
+# 006-03 Group the [BeanType] by bean species
+group_criollo <- c("Criollo",
+                   "Criollo (Amarru)",
+                   "Criollo (Ocumare)",
+                   "Criollo (Ocumare 61)",
+                   "Criollo (Ocumare 67)",
+                   "Criollo (Ocumare 77)",
+                   "Criollo (Porcelana)",
+                   "Criollo (Wild)")
+
+group_forastero <- c("Forastero",
+                     "Forastero (Amelonado)",
+                     "Forastero (Arriba)",
+                     "Forastero (Arriba) ASS",
+                     "Forastero (Arriba) ASSS",
+                     "Forastero (Catongo)",
+                     "Forastero (Parazinho)")
+
+group_nacional <- c("Forastero (Nacional)",
+                    "Nacional",
+                    "Nacional (Arriba)")
+
+group_trinitario <- c("Trinitario",
+                      "Trinitario (Amelonado)",
+                      "Trinitario (Scavina)")
+
+group_blend <- c("Amazon",
+                 "Amazon mix",
+                 "Amazon, ICS",
+                 "Blend",
+                 "Blend-Forastero,Criollo",
+                 "Criollo, +",
+                 "Criollo, Forastero",
+                 "Criollo, Trinitario",
+                 "Forastero, Trinitario",
+                 "Forastero(Arriba, CCN)",
+                 "Trinitario (85% Criollo)",
+                 "Trinitario, Criollo",
+                 "Trinitario, Forastero",
+                 "Trinitario, Nacional",
+                 "Trinitario, TCGA",
+                 "Beniano",
+                 "CCN51",
+                 "EET",
+                 "Matina")
+
+chocolate_data$BeanType[which(chocolate_data$BeanType %in% group_criollo)] <- "Criollo"
+chocolate_data$BeanType[which(chocolate_data$BeanType %in% group_forastero)] <- "Forastero"
+chocolate_data$BeanType[which(chocolate_data$BeanType %in% group_nacional)] <- "Nacional"
+chocolate_data$BeanType[which(chocolate_data$BeanType %in% group_trinitario)] <- "Trinitario"
+chocolate_data$BeanType[which(chocolate_data$BeanType %in% group_blend)] <- "Blend"
+
+# 006-04 Replace missing values for [BeanType] to [Blend] if
+#     - Multiple countries for [BeanOrigin] AND [BeanType] is na
+#     - [ChocolateBarName] contains [Blend] or [blend] or [,] AND [BeanType] is na
+chocolate_data$BeanType[is.na(chocolate_data$BeanType) & str_detect(chocolate_data$BeanOrigin, "\\|")] <- "Blend"
+chocolate_data$BeanType[is.na(chocolate_data$BeanType) & str_detect(chocolate_data$ChocolateBarName, "blend")] <- "Blend"
+chocolate_data$BeanType[is.na(chocolate_data$BeanType) & str_detect(chocolate_data$ChocolateBarName, "Blend")] <- "Blend"
+chocolate_data$BeanType[is.na(chocolate_data$BeanType) & str_detect(chocolate_data$ChocolateBarName, "\\,")] <- "Blend"
+
+# 006-05 Create a new column [RatingClass] to be used as a Visualization
+chocolate_data <- chocolate_data %>%
+   mutate(RatingClass = case_when(Rating >= 1.00 & Rating <= 1.75  ~ "10-Unpleasant",
+                                  Rating >= 2.00 & Rating <= 2.75  ~ "20-Disappointing",
+                                  Rating >= 3.00 & Rating <= 3.75  ~ "30-Satisfactory",
+                                  Rating >= 4.00 & Rating <= 4.75  ~ "40-Premium",
+                                  Rating > 4.75  ~ "50-Elite"))
+
+# 006-06 separate [BeanOrigin] into rows using pipe-separator
+chocolate_data <- chocolate_data %>%
+   separate_rows(BeanOrigin,
+                 sep = "\\|",
+                 convert = FALSE)
+
+# 006-07 Create a new column [BeanOriginGeoRegion] providing the Geo-region based on the [BeanOrigin]
+chocolate_data <- chocolate_data %>%
+   left_join(country_region_data, by = c("BeanOrigin" = "CountryName")) %>%
+   mutate(BeanOriginGeoRegion = if_else(condition = is.na(GeoRegion),
+                                        true = BeanOrigin,
+                                        false = GeoRegion,
+                                        missing = BeanOrigin)) %>%
+   select(- CountryCode,
+          - GeoRegion)
+
+# 006-08 Create a new column [CompanyGeoRegion] providing the Geo-region based on the [CompanyCountry]
+chocolate_data <- chocolate_data %>%
+   left_join(country_region_data, by = c("CompanyCountry" = "CountryName")) %>%
+   mutate(CompanyGeoRegion = if_else(condition = is.na(GeoRegion),
+                                        true = CompanyCountry,
+                                        false = GeoRegion,
+                                        missing = CompanyCountry)) %>%
+   select(- CountryCode,
+          - GeoRegion)
+
+# 006-09 Convert [CocoaPercentage] column to Numeric by removing % sign and rounding to the nearest integer
+chocolate_data$CocoaPercentage <- as.numeric(sub("%", "", chocolate_data$CocoaPercentage, fixed = TRUE))
+chocolate_data$CocoaPercentage <- round(chocolate_data$CocoaPercentage, digits = 0)
+
+# 006-10 Convert [Rating] column to Numeric
+chocolate_data$Rating <- as.numeric(chocolate_data$Rating)
+
+# 006-11 Convert all other columns to Factor
+chocolate_data$CompanyName <- as.factor(chocolate_data$CompanyName)
+chocolate_data$CompanyCountry <- as.factor(chocolate_data$CompanyCountry)
+chocolate_data$CompanyGeoRegion <- as.factor(chocolate_data$CompanyGeoRegion)
+chocolate_data$BeanType <- as.factor(chocolate_data$BeanType)
+chocolate_data$BeanOrigin <- as.factor(chocolate_data$BeanOrigin)
+chocolate_data$BeanOriginGeoRegion <- as.factor(chocolate_data$BeanOriginGeoRegion)
+chocolate_data$ReviewYear <- as.factor(chocolate_data$ReviewYear)
+chocolate_data$RatingClass <- as.factor(chocolate_data$RatingClass)
+
+# 006-12 Generate a new clean dataset by ordering the columns and removing unused ones [Reference]
+chocolate_data_clean <- chocolate_data %>%
+   select(ChocolateBarName,
+          CompanyName,
+          CompanyCountry,
+          CompanyGeoRegion,
+          BeanType,
+          BeanOrigin,
+          BeanOriginGeoRegion,
+          CocoaPercentage,
+          ReviewYear,
+          Rating,
+          RatingClass)
+
+```
+
+Based on our data description, we notice that the data is not normalized and needs some cleaning and transformation to be usable in our Exploratory Data Analysis.
+
+We apply the following cleaning and transformation rules to our dataset:
+
+* Standardize the `BeanOrigin` column data based on the Country Name or Sub-Region of the Country based on ISO-3166 standards
+* Correct the Misspellings in `CompanyCountry` column to be compliant with ISO-3166 standards
+* Group `BeanType` by specy. Five main bean type groups are identified: Criollo, Forastero, Nacional, Trinitario and Blend
+* Replace missing values for `BeanType` to `Blend` based on the assumption
+      - Multiple countries for `BeanOrigin` and `BeanType` is missing (`na`)
+      - `ChocolateBarName` contains `Blend` or `blend` or `,` and `BeanType` is missing (`na`)
+* Convert `CocoaPercentage` column to `Numeric` by removing `%` sign and rounding to the nearest integer
+
+In addition, we engineer new features (variables) that we might use to build our preditive model:
+
+* Create a new variable `RatingScale` based on the **_Flavor Of Cocoa Rating System_**
+* Create a new variable `BeanOriginGeoRegion` providing the Geo-region based on the `BeanOrigin`
+* Create a new variable `CompanyGeoRegion` providing the Geo-region based on the `CompanyCountry`
+
+We notice that the `BeanOrigin` are pipe-separated values after the transformation. We might need this feature `BeanOrigin` to predict the Chocolate bar rating. However, we should extract individual value for more consistent and robust estimate.
+
+Finally, we convert all variables to their corresponding data type and remove `Reference` feature as it is time related to `ReviewYear`.
+
+After preprocessing the data, the `chocolate_data_clean` dataset looks like:
+
+```{r 006-02-clean-dataset-sample}
+
+# 006-13 chocolate_data Dataset Example after preprocessing
+head(chocolate_data_clean) %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE,
+                 latex_options = "scale_down")
+
+```
+
+To summarize, the features that could be selected in the machine learning models to predict the `Chocolate Bar Rating` are:
+
+```{r 007-01-understand-data-structure, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 007 - Understand the final data structure
+# =============================================================================
+
+# 007-01 chocolate_data_clean Dataset Structure
+str(chocolate_data_clean)
+
+# 007-02 Number of columns in chocolate_data_clean Dataset
+num_columns <- ncol(chocolate_data_clean)
+
+num_columns
+
+# 007-03 Number of rows in chocolate_data_clean Dataset
+num_rows <- nrow(chocolate_data_clean)
+
+num_rows
+
+# 007-04 Check chocolate_data_clean Dataset structure
+dataset_structure <- tibble("Feature_Name" = c("ChocolateBarName",
+                                               "CompanyName",
+                                               "CompanyCountry",
+                                               "CompanyGeoRegion",
+                                               "BeanType",
+                                               "BeanOrigin",
+                                               "BeanOriginGeoRegion",
+                                               "CocoaPercentage",
+                                               "ReviewYear",
+                                               "Rating",
+                                               "RatingClass"),
+                            "Data_Type" = c(class(chocolate_data_clean$ChocolateBarName),
+                                            class(chocolate_data_clean$CompanyName),
+                                            class(chocolate_data_clean$CompanyCountry),
+                                            class(chocolate_data_clean$CompanyGeoRegion),
+                                            class(chocolate_data_clean$BeanType),
+                                            class(chocolate_data_clean$BeanOrigin),
+                                            class(chocolate_data_clean$BeanOriginGeoRegion),
+                                            class(chocolate_data_clean$CocoaPercentage),
+                                            class(chocolate_data_clean$ReviewYear),
+                                            class(chocolate_data_clean$Rating),
+                                            class(chocolate_data_clean$RatingClass)),
+                            "Distinct_Values" = c(n_distinct(chocolate_data_clean$ChocolateBarName),
+                                                  n_distinct(chocolate_data_clean$CompanyName),
+                                                  n_distinct(chocolate_data_clean$CompanyCountry),
+                                                  n_distinct(chocolate_data_clean$CompanyGeoRegion),
+                                                  n_distinct(chocolate_data_clean$BeanType),
+                                                  n_distinct(chocolate_data_clean$BeanOrigin),
+                                                  n_distinct(chocolate_data_clean$BeanOriginGeoRegion),
+                                                  n_distinct(chocolate_data_clean$CocoaPercentage),
+                                                  n_distinct(chocolate_data_clean$ReviewYear),
+                                                  n_distinct(chocolate_data_clean$Rating),
+                                                  n_distinct(chocolate_data_clean$RatingClass)),
+                            "Missing_Values" = c(sum(is.na(chocolate_data_clean$ChocolateBarName)),
+                                                 sum(is.na(chocolate_data_clean$CompanyName)),
+                                                 sum(is.na(chocolate_data_clean$CompanyCountry)),
+                                                 sum(is.na(chocolate_data_clean$CompanyGeoRegion)),
+                                                 sum(is.na(chocolate_data_clean$BeanType)),
+                                                 sum(is.na(chocolate_data_clean$BeanOrigin)),
+                                                 sum(is.na(chocolate_data_clean$BeanOriginGeoRegion)),
+                                                 sum(is.na(chocolate_data_clean$CocoaPercentage)),
+                                                 sum(is.na(chocolate_data_clean$ReviewYear)),
+                                                 sum(is.na(chocolate_data_clean$Rating)),
+                                                 sum(is.na(chocolate_data_clean$RatingClass))))
+
+```
+
+```{r 007-02-understand-data-structure}
+
+# 007-05 Display Missing Value Counts
+dataset_structure %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+```
+
+\newpage
+
+## Exploratory Data Analysis (EDA)
+
+Let's explore our `chocolate_data_clean` dataset using some visualization techniques to build more comprehensive understanding of the data. So, here are some questions that we raise:
+
+**_1. What is the Overall Chocolate Bar Ratings distribution?_**
+
+```{r 008-01-OverallChocolateBarRatingDistribution, echo=FALSE, message=FALSE, warning=FALSE}
+
+# =============================================================================
+#     Step 008 - Explore and visualize the data
+# =============================================================================
+
+# 008-01 What is the overall Chocolate Bar Ratings distribution?
+ratings_mu <- mean(chocolate_data_clean$Rating)
+
+chocolate_data_clean %>%
+   ggplot(aes(Rating)) +
+   geom_histogram(color = "darkblue",
+                  fill = "lightblue",
+                  binwidth = 0.25) +
+   geom_vline(xintercept = ratings_mu,
+              col = "red",
+              linetype = "dashed") +
+   labs(title = "Overall Chocolate Bar Rating Distribution",
+        x = "Rating",
+        y = "Frequency") +
+   theme_economist() +
+   scale_color_economist() +
+   theme(plot.title = element_text(size = 11, color = "darkblue", hjust = 0.5))
+
+```
+
+The figure _"Overall Chocolate Bar Rating Distribution"_ shows the rating distribution in our dataset. The vertical dashed line represents the overall rating average $\mu$ (**_`r ratings_mu`_**) across all Chocolate bars. We notice also that the rating range from 1 to 4 with an exception for a few Chocolate bars that are rated as Elite or Unpleasant chocolate. 
+
+We also notice that the most common rating is 3.5 by around 400 ratings followed closely by 3.0.
+
+
+**_2. What is the Chocolate Bar Rating Class Distribution?_**
+
+```{r 008-02-ChocolateBarRatingClassDistribution, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-02 What is the Chocolate Bar Rating Class distribution?
+chocolate_data_clean %>%
+   ggplot(aes(RatingClass)) +
+   geom_bar(color = "darkblue",
+            fill = "lightblue") +
+   coord_flip() +
+   labs(title = "Chocolate Bar Rating Class Distribution",
+        x = "Rating Scale",
+        y = "Frequency") +
+   theme_economist() +
+   scale_color_economist() +
+   theme(plot.title = element_text(size = 11, color = "darkblue", hjust = 0.5),
+         axis.text.x = element_text(size = 8, angle = 90, hjust = 1),
+         legend.position="none")
+
+```
+
+The figure _"Chocolate Bar Rating Class Distribution"_ confirm the rating districution. Most of the chocolate bar ratings are _"Satisfactory"_ (Class 3) followed by the _"Premium"_ Chocolate bars.
+
+\newpage
+
+**_3. What is the Chocolate Bar Ratings distribution by Cocoa Percentage?_**
+
+```{r 008-03-ChocolateBarRatingDistributionByCocoaPercentage, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-03 What is the Chocolate Bar Ratings distribution by Cocoa Percentage?
+cocoa_pct_mu <- mean(chocolate_data_clean$CocoaPercentage)
+
+chocolate_data_clean %>%
+   ggplot(aes(CocoaPercentage)) +
+   geom_histogram(color = "darkblue",
+                  fill = "lightblue",
+                  binwidth = 1) +
+   geom_vline(xintercept = cocoa_pct_mu,
+              col = "red",
+              linetype = "dashed") +
+   labs(title = "Chocolate Bar Rating Distribution By Cocoa Percentage",
+        x = "Cocoa Percentage",
+        y = "Frequency") +
+   theme_economist() +
+   scale_color_economist() +
+   theme(plot.title = element_text(size = 11, color = "darkblue", hjust = 0.5))
+
+```
+
+The figure _"Chocolate Bar Rating Distribution By Cocoa Percentage"_ shows the rating distribution by Cocoa Percentage. The vertical dashed line represents the Cocoa Percentage average $\mu$ (**_`r cocoa_pct_mu`_**) across all Chocolate bars. The figure shows that most of the chocolate bars are made with around 65% and 75% of cacao in the bar, with around 700 chocolate bars being made with 70% cacao.
+
+
+**_4. Is there any correlation between Chocolate Bar Ratings and Cocoa Percentage?_**
+
+```{r 008-04-CorrelationBetweenChocolateBarRatingAndCocoaPercentage, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-04 Is there any correlation between Chocolate Bar Ratings and Cocoa Percentage?
+chocolate_data_clean %>%
+   ggplot(aes(y = Rating, x = CocoaPercentage)) +
+   geom_jitter(color = "darkblue") +
+   geom_smooth(method = "lm") +
+   labs(title = "Chocolate Bar Rating VS Cocoa Percentage",
+        x = "Cocoa Percentage",
+        y = "Rating") +
+   theme_economist() +
+   scale_color_economist() +
+   theme(plot.title = element_text(size = 11, color = "darkblue", hjust = 0.5))
+
+```
+
+This figure _"Chocolate Bar Rating VS Cocoa Percentage"_ shows that as the cocoa percent increases, the perceived rating of chocolate decreases slightly.
+
+\newpage
+
+**_5. What is the Chocolate Bar Ratings distribution by Bean Type?_**
+
+```{r 008-05-ChocolateBarRatingDistributionByBeanType, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-05 What is the Chocolate Bar Ratings distribution by Bean Type?
+chocolate_data_clean %>%
+   filter(!is.na(BeanType)) %>%
+   group_by(BeanType) %>%
+   summarize(Rating_Count = n(),
+             Rating_Average = mean(Rating)) %>%
+   ggplot(aes(x = reorder(BeanType, Rating_Count),
+              y = Rating_Count)) +
+   geom_bar(stat = "identity",
+            color = "darkblue",
+            fill = "lightblue") +
+   labs(title = "Chocolate Bar Rating Distribution By Bean Type",
+        x = "Bean Type",
+        y = "Frequency") +
+   theme_economist() +
+   scale_color_economist() +
+   theme(plot.title = element_text(size = 11, color = "darkblue", hjust = 0.5),
+         axis.text.x = element_text(size = 8, angle = 90, hjust = 1),
+         legend.position="none")
+
+```
+
+The figure _"Chocolate Bar Rating Distribution By Bean Type"_ shows the rating distribution by Bean Type. The most bean types used are Blend and Trinitario. However, most of the manufacturers don't provide Bean Type (607 observations). We assume that they are preserving the secret of their recepies.
+
+```{r 008-06-ChocolateBarRatingDistributionByBeanType, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-06 What is the Chocolate Bar Ratings distribution by Bean Type?
+chocolate_data_clean %>%
+   filter(!is.na(BeanType)) %>%
+   ggplot(aes(x = BeanType,
+              y = Rating)) +
+   geom_boxplot(color = "darkblue",
+                fill = "lightblue") +
+   labs(title = "Chocolate Bar Rating Distribution By Bean Type",
+        x = "Bean Type",
+        y = "Rating") +
+   theme_economist() +
+   scale_color_economist() +
+   theme(plot.title = element_text(size = 11, color = "darkblue", hjust = 0.5))
+
+```
+
+The above Box-Plot figure shows no such difference in the data distribution by Bean Type. This confirms that there is no strong correlation between Ratings and Bean Type.
+
+\newpage
+
+**_6. What Is The Chocolate Bar Rating Average By Bean Origin (Country)?_**
+
+```{r 008-07-ChocolateBarRatingDistributionByBeanType, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# 008-07 What Is The Chocolate Bar Rating Average By Bean Origin (Country)
+BeanOriginMap <- chocolate_data_clean %>%
+   filter(!is.na(BeanOrigin)) %>%
+   group_by(BeanOrigin) %>%
+   summarize(Rating_Count = n(),
+             Rating_Average = mean(Rating)) %>%
+   joinCountryData2Map(joinCode="NAME",
+                       nameJoinColumn="BeanOrigin",
+                       verbose = FALSE)
+
+```
+
+
+```{r 008-07-WorldMap, echo=FALSE, message=FALSE, warning=FALSE, fig.height=5, fig.width=7}
+
+# 008-07 What Is The Chocolate Bar Rating Average By Bean Origin (Country)
+mapCountryData(mapToPlot = BeanOriginMap,
+               nameColumnToPlot="Rating_Average",
+               missingCountryCol = 'lightgrey',
+               oceanCol = 'lightblue',
+               borderCol = 'darkgrey',
+               mapTitle = "Chocolate Bar Rating Average By Bean Origin (Country)",
+               colourPalette = "heat",
+               catMethod = "fixedWidth")
+
+```
+
+The map _"Chocolate Bar Rating Distribution By Bean Origin (Country)"_ shows the rating world distribution by Bean Origin. The most rated chocolate bars have bean origin from Venezuela, Ecuador, Dominican Republic, Peru and Madagascar.
+
+\newpage
+
+**_7. What is the top 10 ranking of the Chocolate Bar Rating Average by Bean Origin (Country)?_**
+
+```{r 008-08-ChocolateBarRatingAverageByBeanOriginCountry, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-08 What is the top 10 ranking of the Chocolate Bar Rating Average by Bean Origin (Country)?
+chocolate_data_clean %>%
+   filter(!is.na(BeanOrigin)) %>%
+   group_by(BeanOrigin) %>%
+   summarize(Rating_Count = n(),
+             Rating_Average = mean(Rating)) %>%
+   filter(Rating_Count >= 10) %>%
+   arrange(desc(Rating_Average)) %>%
+   head(10) %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+```
+
+The table above shows that the best rated chocolate bars are made from cocoa beans that grown in Caribbean and South Pacific.
+
+
+**_8. What is the Chocolate Bar Ratings distribution by Review Year?_**
+
+```{r 008-09-ChocolateBarRatingDistributionByReviewYear, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-09 What is the Chocolate Bar Ratings distribution by Review Year?
+chocolate_data_clean %>%
+   filter(!is.na(ReviewYear)) %>%
+   ggplot(aes(x = ReviewYear,
+              y = Rating)) +
+   geom_boxplot(color = "darkblue",
+                fill = "lightblue") +
+   labs(title = "Chocolate Bar Rating Distribution By Review Year",
+        x = "Review Year",
+        y = "Rating") +
+   theme_economist() +
+   scale_color_economist() +
+   theme(plot.title = element_text(size = 11, color = "darkblue", hjust = 0.5))
+
+```
+
+The figure _"Chocolate Bar Rating Distribution By Review Year"_ shows that the number of chocolate bars ratings varies from year to year. But, the most of the chocolate ratings are distributed around the average. Also, we notice that there is less variation in the ratings in the recent years. 
+
+\newpage
+
+**_9. What are the top 10 Chocolate Bar Rating Average by Company Name (at least 10 ratings)?_**
+
+```{r 008-10-Top10ChocolateBarRatingAverageByCompanyName, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-10 What are the top 10 Chocolate Bar Rating Average by Company Name (at least 10 ratings)?
+chocolate_data_clean %>%
+   group_by(CompanyName, CompanyCountry) %>%
+   summarize(Rating_Count = n(),
+             Rating_Average = mean(Rating)) %>%
+   filter(Rating_Count >= 10) %>%
+   arrange(desc(Rating_Average)) %>%
+   head(10) %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+```
+
+The table above shows that only Amedei from Italy and Idilio (Felchlin) from Switzerland are the most rated companies with a Premium quality chocolate bars (Based on at least 10 ratings).
+
+\newpage
+
+**_10. What is the Chocolate Bar Rating Average Distribution By Company Location (Country)?_**
+
+```{r 008-11-ChocolateBarRatingAverageDistributionByCompanyLocation, echo=FALSE, message=FALSE, warning=FALSE, fig.height=5, fig.width=7}
+
+# 008-11 What is the Chocolate Bar Rating Average Distribution By Company Location (Country)?
+chocolate_data_clean %>%
+   group_by(CompanyCountry) %>%
+   summarise(Rating_Count = n(),
+             Rating_Average = mean(Rating)) %>%
+   arrange(desc(Rating_Average)) %>%
+   ggplot(aes(y = Rating_Average,
+              x = reorder(CompanyCountry, Rating_Average))) +
+   geom_point(aes(size = Rating_Count,
+                  colour = factor(Rating_Average)),
+              alpha = 0.5) +
+   labs(title = "Chocolate Bar Rating Average Distribution By Company Location (Country)",
+        x = "Country",
+        y = "Rating Average") +
+   theme_economist() +
+   theme(plot.title = element_text(size = 11, color = "darkblue", hjust = 0.5),
+         axis.text.x = element_text(size = 7, angle = 90, hjust = 1),
+         legend.position="none")
+
+```
+
+The figure _"Chocolate Bar Average Rating Distribution By Company Location (Country)"_ shows that chocolate bar ratings vary depending on the Company location (Country).
+
+```{r 008-12-ChocolateBarRatingDistributionByCompanyCountry, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# 008-12 What is the Chocolate Bar Ratings Average Distribution by Company Location (Country)?
+CompanyCountryMap <- chocolate_data_clean %>%
+   group_by(CompanyCountry) %>%
+   summarise(Rating_Count = n(),
+             Rating_Average = mean(Rating)) %>%
+   joinCountryData2Map(joinCode="NAME",
+                       nameJoinColumn="CompanyCountry",
+                       verbose = FALSE)
+
+```
+
+
+```{r 008-12-WorldMap, echo=FALSE, message=FALSE, warning=FALSE, fig.height=5, fig.width=7}
+
+# 008-12 What is the Chocolate Bar Ratings Average Distribution by Company Location (Country)?
+mapCountryData(mapToPlot = CompanyCountryMap,
+               nameColumnToPlot="Rating_Average",
+               missingCountryCol = 'lightgrey',
+               oceanCol = 'lightblue',
+               borderCol = 'darkgrey',
+               mapTitle = "Chocolate Bar Rating Distribution By Company Location (Country)",
+               colourPalette = "diverging",
+               catMethod = "fixedWidth")
+
+```
+
+The map _"Chocolate Bar Rating Distribution By Company Location (Country)"_ shows the rating world distribution of chocolate companies.
+
+
+**_11. What are the top 10 Chocolate Bar Rating Average by Company Country (at least 10 ratings)?_**
+
+```{r 008-13-Top10ChocolateBarRatingAverageByCompanyGeoRegion, echo=FALSE, message=FALSE, warning=FALSE}
+
+# 008-13 What is the top 10 ranking of the Chocolate Bar Rating Average by Company Geo-Region (at least 10 ratings)?
+chocolate_data_clean %>%
+   filter(!is.na(CompanyCountry)) %>%
+   group_by(CompanyCountry) %>%
+   summarize(Rating_Count = n(),
+             Rating_Average = mean(Rating)) %>%
+   filter(Rating_Count >= 10) %>%
+   arrange(desc(Rating_Average)) %>%
+   head(10) %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+```
+
+The table above shows that the companies from Vietnam, Canada and Brazil are the most rated companies (Based on at least 10 ratings).
+
+\newpage
+
+## Model Building, Training and Validation
+
+
+### Key steps
+
+After an in-depth Exploratory Data Analysis, we are ready to build, train and test different algorithms and models to reach our goal that provide the best accuracy on the validation dataset.
+
+Based on our Exploratory Data Analysis, most of the available features are categorical (except the `CocoaPercentage`). Our models will be using the following features to predict the `RatingClass`:
+
+* `CocoaPercentage`
+* `BeanType`
+* `BeanOrigin` (Country)
+* `CompanyCountry`
+* `ReviewYear`
+
+```{r 009-FinalDataset, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 009 - Select only the feature that are has less variability and
+#                 Filter the dataset by removing all [NAs] rows
+# =============================================================================
+
+# 009-01 Create final Dataset
+chocolate_final_ds <- chocolate_data_clean %>%
+   select(CocoaPercentage,
+          BeanType,
+          BeanOrigin,
+          CompanyCountry,
+          ReviewYear,
+          RatingClass) %>%
+   drop_na()
+
+```
+
+To build and train the different models, we will proceed, for each model, in five sequential steps:
+
+1. Split our `chocolate_data_clean` into two datasets with a breakdown 70% and 30%:
+
+   * Training dataset `training_set`
+   * Validation dataset `validation_set`
+
+2. Define and Build the model
+3. Train and tune the algorithm in the training dataset `training_set`
+4. Validate the algorithm by runing the predictions in the validation dataset `validation_set`
+5. Iterate over the models until goal satisfaction
+
+```{r 010-SplitDataset, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+
+# =============================================================================
+#     Step 010 - Split the dataset into
+#                 -  training_set   70%
+#                 -  validation_set 30%
+# =============================================================================
+
+# 010-01 Create Data Partition Index
+set.seed(1111)
+sampling_index <- createDataPartition(y = chocolate_final_ds$RatingClass,
+                                      times = 1,
+                                      p = 0.7,
+                                      list = FALSE)
+
+# 010-02 Create training_set
+training_set <- chocolate_final_ds[sampling_index, ]
+
+# 010-03 Create validation_set
+validation_set <- chocolate_final_ds[-sampling_index, ]
+
+# 010-04 Clean unecessary data frames
+rm(chocolate_data,
+   sampling_index)
+
+# =============================================================================
+#     Step 011 - Model Building, Training and Validation
+# =============================================================================
+
+# 011-01 Configure the number of K-folds for cross validation (Repeated CV)
+control <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+
+```
+
+Our goal is to predict with the highest acuracy the `RatingClass` of the Chocolate Bars. So, we decided to test the following classification and regression models:
+
+- Model 1: Support Vector Machine (SVM)
+- Model 2: K-Nearest Neighbors (KNN)
+- Model 3: Random Forest (RF)
+- Model 4: Learning Vector Quantization (LVQ)
+- Model 5: Stochastic Gradient Boosting Machine (GBM)
+- Model 6: Classification And Regression Tree (CART)
+
+For all these models, we will be using the `caret` package for its simplicity. This package provide a simplified way to build machine learning algorithm with almost the same syntax.
+
+\newpage
+
+### Model 1 - Support Vector Machine (SVM)
+
+The objective of the support vector machine algorithm is to find a hyperplane in an N-dimensional space (N-the number of features) that distinctly classifies the data points.
+
+The equation of the support vector classifier is:
+
+$$f(x) = \beta_0 + \sum_{i \in S} \alpha_i K(x_i,y_i)$$
+
+- $S$ are the support vectors
+- $\alpha$ is a weight value which is non-zero for all support vectors and otherwise 0
+- $K(x_i,y_i)$ is the Kernel Function that will use the "Radial kernel"
+
+$$K(x,y) = exp(-\gamma \sum_{j=1}^{p}(x_{ij} – y_{ij})^2 )$$
+Let's apply this model to our `Chocolate Bars Rating` dataset and verify the overall accuracy on the `validation_set` dataset.
+
+```{r 011-01-Model-1, echo=FALSE, message=FALSE, warning=FALSE}
+
+# =============================================================================
+#     Step 011.01 - Model Building, Training and Validation
+#           Model 1 - Support Vector Machine (SVM)
+# =============================================================================
+
+# Step 01: Identify the Model
+model_1_id <- "SVM"
+model_1_desc <- "Support Vector Machine"
+
+# Step 02: Train the Model on the training_set
+set.seed(1111)
+model_1_fit <- train(RatingClass ~ .,
+                     data = training_set,
+                     trControl = control,
+                     method = "svmRadial")
+
+# Step 03: Get and display the results of the model on the training_set
+model_1_fit_results <- model_1_fit$results
+
+model_1_fit_results %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 04: Get the best Accuracy Measure from the Model on the training_set
+model_1_fit_accuracy <- max(model_1_fit$results["Accuracy"])
+
+# Step 05: Predict the Model on the validation_set
+model_1_predict <- predict(model_1_fit,
+                           newdata = validation_set)
+
+# Step 06: Define Confusion Matrix
+model_1_confusion_matrix <- confusionMatrix(model_1_predict, validation_set$RatingClass)
+
+# Step 07: Get and display the results of the final model on the validation_set
+model_1_predict_results <- model_1_confusion_matrix$overall
+
+model_1_predict_results %>%
+   kable(col.names = c("Measure_Value")) %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 08: Get the best Accuracy Measure from the Model on the validation_set
+model_1_predict_accuracy <- model_1_predict_results["Accuracy"]
+
+# Step 09: Generate a table to record our approaches and the Measure for the model
+model_1_result <- tibble(Model_Id = model_1_id,
+                         Model_Method = model_1_desc,
+                         Accuracy_On_Training = model_1_fit_accuracy,
+                         Accuracy_On_Validation = model_1_predict_accuracy)
+
+# Step 10: Generate an overall table to summarize all the results from all the models.
+result_summary <- model_1_result
+
+# Step 11: Display the result Summary
+result_summary %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE) %>%
+   column_spec(1, width = "5em") %>%
+   column_spec(2, width = "20em") %>%
+   column_spec(4, bold = TRUE)
+
+```
+
+The predicted **_Accuracy_** on the `validation_set` dataset for the **_`r model_1_desc`_** is about **_`r model_1_predict_accuracy`_**.
+
+\newpage
+
+### Model 2 - K-Nearest Neighbors (KNN)
+
+K-nearest neighbor algorithm is very simple. It works based on minimum distance from the query instance to the training samples to determine the K-nearest neighbors. After we gather K nearest neighbors, we take simple majority of these K-nearest neighbors to be the prediction of the query instance.
+
+Let's apply this model to our `Chocolate Bars Rating` dataset and verify the overall accuracy on the `validation_set` dataset.
+
+```{r 011-02-Model-2, echo=FALSE, message=FALSE, warning=FALSE}
+
+# =============================================================================
+#     Step 011.02 - Model Building, Training and Validation
+#           Model 2 - K-Nearest Neighbors (KNN)
+# =============================================================================
+
+# Step 01: Identify the Model
+model_2_id <- "KNN"
+model_2_desc <- "K-Nearest Neighbors"
+
+# Step 02: Train the Model on the training_set
+set.seed(1111)
+model_2_fit <- train(RatingClass ~ .,
+                     data = training_set,
+                     trControl = control,
+                     method = "knn")
+
+# Step 03: Get and display the results of the model on the training_set
+model_2_fit_results <- model_2_fit$results
+
+model_2_fit_results %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 04: Get the best Accuracy Measure from the Model on the training_set
+model_2_fit_accuracy <- max(model_2_fit$results["Accuracy"])
+
+# Step 05: Predict the Model on the validation_set
+model_2_predict <- predict(model_2_fit,
+                           newdata = validation_set)
+
+# Step 06: Define Confusion Matrix
+model_2_confusion_matrix <- confusionMatrix(model_2_predict, validation_set$RatingClass)
+
+# Step 07: Get and display the results of the final model on the validation_set
+model_2_predict_results <- model_2_confusion_matrix$overall
+
+model_2_predict_results %>%
+   kable(col.names = c("Measure_Value")) %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 08: Get the best Accuracy Measure from the Model on the validation_set
+model_2_predict_accuracy <- model_2_predict_results["Accuracy"]
+
+# Step 09: Generate a table to record our approaches and the Measure for the model
+model_2_result <- tibble(Model_Id = model_2_id,
+                         Model_Method = model_2_desc,
+                         Accuracy_On_Training = model_2_fit_accuracy,
+                         Accuracy_On_Validation = model_2_predict_accuracy)
+
+# Step 10: Generate an overall table to summarize all the results from all the models.
+result_summary <- bind_rows(result_summary,
+                            model_2_result)
+
+# Step 11: Display the result Summary
+result_summary %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE) %>%
+   column_spec(1, width = "5em") %>%
+   column_spec(2, width = "20em") %>%
+   column_spec(4, bold = TRUE)
+
+```
+
+The predicted **_Accuracy_** on the `validation_set` dataset for the **_`r model_2_desc`_** is about **_`r model_2_predict_accuracy`_**.
+
+\newpage
+
+### Model 3 - Random Forest (RF)
+
+Random Forest is a supervised learning algorithm. It creates a forest and makes it somehow random. The "forest" it builds, is an ensemble of Decision Trees, most of the time trained with the "bagging" method. The general idea of the bagging method is that a combination of learning models increases the overall result.
+
+Let's apply this model to our `Chocolate Bars Rating` dataset and verify the overall accuracy on the `validation_set` dataset.
+
+```{r 011-03-Model-3, echo=FALSE, message=FALSE, warning=FALSE}
+
+# =============================================================================
+#     Step 011.03 - Model Building, Training and Validation
+#           Model 3 - Random Forest (RF)
+# =============================================================================
+
+# Step 01: Identify the Model
+model_3_id <- "RF"
+model_3_desc <- "Random Forest"
+
+# Step 02: Train the Model on the training_set
+set.seed(1111)
+model_3_fit <- train(RatingClass ~ .,
+                     data = training_set,
+                     trControl = control,
+                     method = "rf")
+
+# Step 03: Get and display the results of the model on the training_set
+model_3_fit_results <- model_3_fit$results
+
+model_3_fit_results %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 04: Get the best Accuracy Measure from the Model on the training_set
+model_3_fit_accuracy <- max(model_3_fit$results["Accuracy"])
+
+# Step 05: Predict the Model on the validation_set
+model_3_predict <- predict(model_3_fit,
+                           newdata = validation_set)
+
+# Step 06: Define Confusion Matrix
+model_3_confusion_matrix <- confusionMatrix(model_3_predict, validation_set$RatingClass)
+
+# Step 07: Get and display the results of the final model on the validation_set
+model_3_predict_results <- model_3_confusion_matrix$overall
+
+model_3_predict_results %>%
+   kable(col.names = c("Measure_Value")) %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 08: Get the best Accuracy Measure from the Model on the validation_set
+model_3_predict_accuracy <- model_3_predict_results["Accuracy"]
+
+# Step 09: Generate a table to record our approaches and the Measure for the model
+model_3_result <- tibble(Model_Id = model_3_id,
+                         Model_Method = model_3_desc,
+                         Accuracy_On_Training = model_3_fit_accuracy,
+                         Accuracy_On_Validation = model_3_predict_accuracy)
+
+# Step 10: Generate an overall table to summarize all the results from all the models.
+result_summary <- bind_rows(result_summary,
+                            model_3_result)
+
+# Step 11: Display the result Summary
+result_summary %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE) %>%
+   column_spec(1, width = "5em") %>%
+   column_spec(2, width = "20em") %>%
+   column_spec(4, bold = TRUE)
+
+```
+
+The predicted **_Accuracy_** on the `validation_set` dataset for the **_`r model_3_desc`_** is about **_`r model_3_predict_accuracy`_**.
+
+\newpage
+
+### Model 4 - Learning Vector Quantization (LVQ)
+
+The Learning Vector Quantization algorithm (or LVQ for short) is an artificial neural network algorithm that lets you choose how many training instances to hang onto and learns exactly what those instances should look like.
+
+Let's apply this model to our `Chocolate Bars Rating` dataset and verify the overall accuracy on the `validation_set` dataset.
+
+```{r 011-04-Model-4, echo=FALSE, message=FALSE, warning=FALSE}
+
+# =============================================================================
+#     Step 011.04 - Model Building, Training and Validation
+#           Model 4 - Learning Vector Quantization (LVQ)
+# =============================================================================
+
+# Step 01: Identify the Model
+model_4_id <- "LVQ"
+model_4_desc <- "Learning Vector Quantization"
+
+# Step 02: Train the Model on the training_set
+set.seed(1111)
+model_4_fit <- train(RatingClass ~ .,
+                     data = training_set,
+                     trControl = control,
+                     method = "lvq")
+
+# Step 03: Get and display the results of the model on the training_set
+model_4_fit_results <- model_4_fit$results
+
+model_4_fit_results %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 04: Get the best Accuracy Measure from the Model on the training_set
+model_4_fit_accuracy <- max(model_4_fit$results["Accuracy"])
+
+# Step 05: Predict the Model on the validation_set
+model_4_predict <- predict(model_4_fit,
+                           newdata = validation_set)
+
+# Step 06: Define Confusion Matrix
+model_4_confusion_matrix <- confusionMatrix(model_4_predict, validation_set$RatingClass)
+
+# Step 07: Get and display the results of the final model on the validation_set
+model_4_predict_results <- model_4_confusion_matrix$overall
+
+model_4_predict_results %>%
+   kable(col.names = c("Measure_Value")) %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 08: Get the best Accuracy Measure from the Model on the validation_set
+model_4_predict_accuracy <- model_4_predict_results["Accuracy"]
+
+# Step 09: Generate a table to record our approaches and the Measure for the model
+model_4_result <- tibble(Model_Id = model_4_id,
+                         Model_Method = model_4_desc,
+                         Accuracy_On_Training = model_4_fit_accuracy,
+                         Accuracy_On_Validation = model_4_predict_accuracy)
+
+# Step 10: Generate an overall table to summarize all the results from all the models.
+result_summary <- bind_rows(result_summary,
+                            model_4_result)
+
+# Step 11: Display the result Summary
+result_summary %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE) %>%
+   column_spec(1, width = "5em") %>%
+   column_spec(2, width = "20em") %>%
+   column_spec(4, bold = TRUE)
+
+```
+
+The predicted **_Accuracy_** on the `validation_set` dataset for the **_`r model_4_desc`_** is about **_`r model_4_predict_accuracy`_**.
+
+\newpage
+
+### Model 5 - Stochastic Gradient Boosting Machine (GBM)
+
+Gradient boosting is a machine learning technique for regression and classification problems, which produces a prediction model in the form of an ensemble of weak prediction models, typically decision trees.
+
+Let's apply this model to our `Chocolate Bars Rating` dataset and verify the overall accuracy on the `validation_set` dataset.
+
+```{r 011-05-Model-5, echo=FALSE, message=FALSE, warning=FALSE}
+
+# =============================================================================
+#     Step 011.05 - Model Building, Training and Validation
+#           Model 5 - Stochastic Gradient Boosting Machine (GBM)
+# =============================================================================
+
+# Step 01: Identify the Model
+model_5_id <- "GBM"
+model_5_desc <- "Stochastic Gradient Boosting Machine"
+
+# Step 02: Train the Model on the training_set
+set.seed(1111)
+model_5_fit <- train(RatingClass ~ .,
+                     data = training_set,
+                     trControl = control,
+                     method = "gbm",
+                     verbose = FALSE)
+
+# Step 03: Get and display the results of the model on the training_set
+model_5_fit_results <- model_5_fit$results
+
+model_5_fit_results %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 04: Get the best Accuracy Measure from the Model on the training_set
+model_5_fit_accuracy <- max(model_5_fit$results["Accuracy"])
+
+# Step 05: Predict the Model on the validation_set
+model_5_predict <- predict(model_5_fit,
+                           newdata = validation_set)
+
+# Step 06: Define Confusion Matrix
+model_5_confusion_matrix <- confusionMatrix(model_5_predict, validation_set$RatingClass)
+
+# Step 07: Get and display the results of the final model on the validation_set
+model_5_predict_results <- model_5_confusion_matrix$overall
+
+model_5_predict_results %>%
+   kable(col.names = c("Measure_Value")) %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 08: Get the best Accuracy Measure from the Model on the validation_set
+model_5_predict_accuracy <- model_5_predict_results["Accuracy"]
+
+# Step 09: Generate a table to record our approaches and the Measure for the model
+model_5_result <- tibble(Model_Id = model_5_id,
+                         Model_Method = model_5_desc,
+                         Accuracy_On_Training = model_5_fit_accuracy,
+                         Accuracy_On_Validation = model_5_predict_accuracy)
+
+# Step 10: Generate an overall table to summarize all the results from all the models.
+result_summary <- bind_rows(result_summary,
+                            model_5_result)
+
+# Step 11: Display the result Summary
+result_summary %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE) %>%
+   column_spec(1, width = "5em") %>%
+   column_spec(2, width = "20em") %>%
+   column_spec(4, bold = TRUE)
+
+```
+
+The predicted **_Accuracy_** on the `validation_set` dataset for the **_`r model_5_desc`_** is about **_`r model_5_predict_accuracy`_**.
+
+\newpage
+
+### Model 6 - Classification And Regression Tree (CART)
+
+Classification And Regression Trees or Decision Trees are commonly used in data mining with the objective of creating a model that predicts the value of a target (or dependent variable) based on the values of several input (or independent variables) either continuous or categorical.
+
+The CART algorithm is structured as a sequence of questions, the answers to which determine what the next question, if any should be.  The result of these questions is a tree like structure where the ends are terminal nodes at which point there are no more questions. 
+
+Let's apply this model to our `Chocolate Bars Rating` dataset and verify the overall accuracy on the `validation_set` dataset.
+
+```{r 011-06-Model-6, echo=FALSE, message=FALSE, warning=FALSE}
+
+# =============================================================================
+#     Step 011.06 - Model Building, Training and Validation
+#           Model 6 - Classification And Regression Tree (CART)
+# =============================================================================
+
+# Step 01: Identify the Model
+model_6_id <- "CART"
+model_6_desc <- "Classification And Regression Tree"
+
+# Step 02: Train the Model on the training_set
+set.seed(1111)
+model_6_fit <- train(RatingClass ~ .,
+                     data = training_set,
+                     trControl = control,
+                     method = "rpart")
+
+# Step 03: Get and display the results of the model on the training_set
+model_6_fit_results <- model_6_fit$results
+
+model_6_fit_results %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 04: Get the best Accuracy Measure from the Model on the training_set
+model_6_fit_accuracy <- max(model_6_fit$results["Accuracy"])
+
+# Step 05: Predict the Model on the validation_set
+model_6_predict <- predict(model_6_fit,
+                           newdata = validation_set)
+
+# Step 06: Define Confusion Matrix
+model_6_confusion_matrix <- confusionMatrix(model_6_predict, validation_set$RatingClass)
+
+# Step 07: Get and display the results of the final model on the validation_set
+model_6_predict_results <- model_6_confusion_matrix$overall
+
+model_6_predict_results %>%
+   kable(col.names = c("Measure_Value")) %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE)
+
+# Step 08: Get the best Accuracy Measure from the Model on the validation_set
+model_6_predict_accuracy <- model_6_predict_results["Accuracy"]
+
+# Step 09: Generate a table to record our approaches and the Measure for the model
+model_6_result <- tibble(Model_Id = model_6_id,
+                         Model_Method = model_6_desc,
+                         Accuracy_On_Training = model_6_fit_accuracy,
+                         Accuracy_On_Validation = model_6_predict_accuracy)
+
+# Step 10: Generate an overall table to summarize all the results from all the models.
+result_summary <- bind_rows(result_summary,
+                            model_6_result)
+
+# Step 11: Display the result Summary
+result_summary %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE) %>%
+   column_spec(1, width = "5em") %>%
+   column_spec(2, width = "20em") %>%
+   column_spec(4, bold = TRUE)
+
+```
+
+The predicted **_Accuracy_** on the `validation_set` dataset for the **_`r model_6_desc`_** is about **_`r model_6_predict_accuracy`_**.
+
+\newpage
+
+<!-- ============================================================================== -->
+<!--  Section  03. Results                                                          -->
+<!-- ============================================================================== -->
+# 3. Results
+
+Here is the summary of the Accuracy measures after building, training and validating different models on the `validation_set` dataset:
+
+```{r 012-Results, echo=FALSE, message=FALSE, warning=FALSE}
+
+# =============================================================================
+#     Step 012 - Summary results on all the models
+# =============================================================================
+
+# 012 Display the result Summary
+result_summary %>%
+   arrange(desc(Accuracy_On_Validation), desc(Accuracy_On_Training)) %>%
+   kable() %>%
+   kable_styling(bootstrap_options = c("striped","hoved","condensed"),
+                 position = "center",
+                 font_size = 10,
+                 full_width = FALSE) %>%
+   column_spec(1, width = "5em") %>%
+   column_spec(2, width = "20em") %>%
+   column_spec(4, bold = TRUE)
+
+```
+
+Based on the `Accuracy` measure only, we can observe that the model that predict our `Chocolate Bar Rating Class` with the best Accuracy of **_`r model_3_predict_accuracy * 100`_** % is the **_`r model_3_desc`_**. But, all the classification models used in this project give us slightly similar results.
+
+However, we need to compare all the models based on the Accuracy, Kappa value and the confidence intervall (95%).
+
+```{r 013.01-ModelComparison, echo=FALSE, message=FALSE, warning=FALSE, fig.height=5}
+
+# =============================================================================
+#     Step 013 - Model comparison
+# =============================================================================
+
+# 013.01 Summarise the model results
+definitive_results <- resamples(list(SVM = model_1_fit,
+                                     KNN = model_2_fit,
+                                     RF  = model_3_fit,
+                                     LVQ = model_4_fit,
+                                     GBM = model_5_fit,
+                                     CART= model_6_fit))
+
+# 013.02 Box-Plot of the result summary
+bwplot(definitive_results)
+
+```
+
+Based on this Box-plot, the best model to predict the `Chocolate Bar Rating Class` is **_`r model_3_desc`_** followed by **_`r model_1_desc`_** and **_`r model_5_desc`_**.
+
+```{r 013.02-ModelComparison, echo=FALSE, message=FALSE, warning=FALSE, fig.height=5}
+
+# 013.03 Dot-Plot of the result summary
+dotplot(definitive_results)
+
+```
+
+Based on this Dot-plot and the Confidence interval at 95%, the best model to predict the `Chocolate Bar Rating Class` is **_`r model_3_desc`_** followed by **_`r model_1_desc`_** and **_`r model_6_desc`_**.
+
+This confirms that the classification models used in this project give us slightly similar results. So, we will be validation the **_`r model_3_desc`_** model as the one that predict most accuratly the `Chocolate Bar Rating Class`.
+
+\newpage
+
+<!-- ============================================================================== -->
+<!--  Section  04. Conclusion                                                       -->
+<!-- ============================================================================== -->
+# 4. Conclusion
+
+In this project, we have used an iterative applied machine learning approach to implement a Chocolate Bar Recommendation System to predict a Chocolate Bar Rating Class. 
+
+We have explored how data preprocessing and data visualization can impact the complex machine learning model building phase. We learned about different data pre-processing techniques and tried out a few on the chocolate bar dataset.
+
+We also explored a few data visualization tools and discussed how visualization can impact modeling itself. Each visualization tool has its own significance in story telling, and it’s important to understand which ones can be used with particular types of data.
+
+Moreover, we have build, train and validate multiple Classification and Regression algorithms to predict the Quality of the Chocolate Bars. We could also build and train other models and algorithms that could improve the Accuracy.
+
+The most challenging impediment that we might encounter when implementing those additional models and going further in the overall optimizations are both the dataset size (not large enought) and the data quality within the dataset.
+
+Finally, based on our analysis, we can conclude that for all chocolate bars made with one of the five bean types we have included in our data, the ratings for these chocolate bars decrease as the chocolate becomes more bitter, or as the cocoa percent in the chocolate bar increases. From this, we can take away that people prefer sweeter over bitter chocolate for bars made from these five bean types.
